@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>proj.zip (beta)</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@200;300;400;700&display=swap">
+<style>
+  :root { --ground:#000000; --ink:#efefef; --muted:#9a9a9a; --signal:#00ffbb; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; background:var(--ground); color:var(--ink); overflow:hidden;
+    font-family:"IBM Plex Mono", Menlo, monospace; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+  canvas { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  .ui { position:fixed; left:0; right:0; padding:16px 20px; display:flex; justify-content:space-between; align-items:flex-start;
+    font-size:15px; line-height:1.4; opacity:0; transition:opacity .6s; pointer-events:none; }
+  body.on .ui { opacity:1; pointer-events:auto; }
+  .top { top:0; }
+  .brand { font-weight:700; }
+  .brand em { font-style:normal; color:var(--signal); }
+  .brand span { display:block; font-weight:400; color:var(--muted); }
+  nav { display:flex; gap:18px; }
+  nav button { all:unset; cursor:pointer; color:var(--muted); font-weight:700; display:flex; align-items:center; gap:6px; }
+  nav button svg { width:11px; height:13px; }
+  nav button:active { color:var(--ink); }
+  .bottom { bottom:0; flex-direction:column; align-items:stretch; gap:14px; padding-bottom:max(18px, env(safe-area-inset-bottom)); }
+  .mixer { display:flex; justify-content:center; gap:38px; }
+  .fader { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .track { position:relative; width:40px; height:124px; cursor:ns-resize; touch-action:none; }
+  .track::before { content:""; position:absolute; left:19px; top:0; bottom:0; width:2px; background:#3a3a3a; }
+  .fill { position:absolute; left:19px; bottom:0; width:2px; background:var(--signal); }
+  .knob { position:absolute; left:3px; width:34px; height:14px; background:var(--ink); transition:background .2s; }
+  .track.active .knob { background:var(--signal); }
+  .fader b { font-weight:700; font-size:15px; }
+  .fader i { font-style:normal; color:var(--muted); font-size:15px; min-width:3.2em; text-align:center; }
+  .meta { display:flex; justify-content:space-between; align-items:flex-end; color:var(--muted); white-space:nowrap; }
+  .meta button { all:unset; cursor:pointer; color:var(--muted); }
+  .toast { position:fixed; left:50%; top:58px; transform:translateX(-50%); font-size:15px; font-weight:700;
+    background:var(--signal); color:#000; padding:4px 10px; opacity:0; pointer-events:none; transition:opacity .15s; white-space:nowrap; }
+  .toast.show { opacity:1; }
+  .hint { position:fixed; left:0; right:0; text-align:center; font-size:15px; font-weight:700; color:var(--muted);
+    pointer-events:none; transition:opacity .3s; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">proj.zip_sleep</div>
+
+<div class="ui top">
+  <div class="brand">proj.zip <em>(beta)</em></div>
+  <nav>
+    <button data-m="collect"><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>collect</button>
+    <button data-m="rooms"><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>rooms</button>
+  </nav>
+</div>
+<div class="toast" id="toast">module not installed</div>
+
+<div class="ui bottom">
+  <div class="mixer" id="mixer"></div>
+  <div class="meta"><span id="clock">message_01</span><button id="snd">sound: tap to listen</button></div>
+</div>
+
+<script>
+(() => {
+const EYE = {"x":[0.0,0.0158,0.0325,0.0492,0.0659,0.0826,0.0994,0.1161,0.1328,0.1495,0.1662,0.1829,0.1996,0.2163,0.2331,0.2498,0.2665,0.2832,0.2999,0.3166,0.3333,0.3491,0.3658,0.3825,0.3993,0.416,0.4327,0.4494,0.4661,0.4828,0.4995,0.5162,0.533,0.5497,0.5664,0.5831,0.5998,0.6165,0.6332,0.65,0.6667,0.6825,0.6992,0.7159,0.7326,0.7493,0.766,0.7827,0.7994,0.8162,0.8329,0.8496,0.8663,0.883,0.8997,0.9164,0.9331,0.9499,0.9666,0.9833,1.0],"t":[0.0784,0.0728,0.0681,0.0635,0.0589,0.0542,0.0496,0.0459,0.0422,0.0384,0.0347,0.031,0.0282,0.0254,0.0227,0.0199,0.0171,0.0143,0.0124,0.0106,0.0088,0.0072,0.0057,0.0044,0.0033,0.0023,0.0015,0.0008,0.0004,0.0001,0.0,0.0,0.0002,0.0006,0.0012,0.0019,0.0028,0.0039,0.0051,0.0065,0.0081,0.0098,0.0115,0.0143,0.0162,0.0189,0.0217,0.0245,0.0273,0.0301,0.0338,0.0375,0.0412,0.0449,0.0487,0.0533,0.0579,0.0626,0.0672,0.0728,0.0784],"b":[0.0784,0.0914,0.1034,0.1155,0.1266,0.1378,0.1489,0.1582,0.1684,0.1777,0.1861,0.1944,0.2028,0.2102,0.2176,0.2241,0.2306,0.2371,0.2427,0.2474,0.252,0.2566,0.2603,0.2641,0.2668,0.2696,0.2715,0.2733,0.2743,0.2743,0.2743,0.2743,0.2733,0.2715,0.2696,0.2668,0.2641,0.2613,0.2576,0.2529,0.2483,0.2436,0.239,0.2334,0.2269,0.2204,0.2139,0.2065,0.1991,0.1907,0.1824,0.174,0.1647,0.1554,0.1461,0.1359,0.1248,0.1146,0.1025,0.0904,0.0784],"pc":[0.5,0.0566],"pr":0.1967,"hc":[0.3407,0.1051],"hr":0.0372,"h":0.2743};
+const LINES = ["the signal is there.", "it needs time."];
+const INK = "#efefef", SIG = "#00ffbb", MUTED = "#9a9a9a";
+const GLYPHS = "▒░▓#%@_/\\|01<>*+=~:";
+
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  layout();
+}
+
+const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
+const ease = x => { x = clamp(x); return x*x*(3-2*x); };
+const eout = x => { x = clamp(x); return 1 - Math.pow(1-x, 3); };
+const ein = x => Math.pow(clamp(x), 2.4);
+const rnd = (a=1) => (Math.random()*2-1)*a;
+
+/* ---------- eye of awake ---------- */
+function eyeGeom() { const w = Math.min(W*0.78, 440); return { w, x0: W/2 - w/2, y0: H/2 - EYE.h*w/2 }; }
+function drawEye(lid, Z) {
+  const g = eyeGeom();
+  const pcx = g.x0 + EYE.pc[0]*g.w, pcy = g.y0 + EYE.pc[1]*g.w;
+  cx.save();
+  cx.translate(W/2, H/2); cx.scale(Z, Z);
+  // zoom heads into the pupil, keeping it centred on screen
+  const k = ease((Z-1)/3);
+  cx.translate(-(W/2 + (pcx - W/2)*k), -(H/2 + (pcy - H/2)*k));
+  const path = new Path2D();
+  const n = EYE.x.length;
+  for (let i = 0; i < n; i++) {
+    const t = EYE.t[i], b = EYE.b[i], s = b - t;
+    const y = t + lid*0.86*s;
+    const X = g.x0 + EYE.x[i]*g.w, Y = g.y0 + y*g.w;
+    i ? path.lineTo(X, Y) : path.moveTo(X, Y);
+  }
+  for (let i = n-1; i >= 0; i--) {
+    const t = EYE.t[i], b = EYE.b[i], s = b - t;
+    const y = b - lid*0.14*s;
+    path.lineTo(g.x0 + EYE.x[i]*g.w, g.y0 + y*g.w);
+  }
+  path.closePath();
+  cx.save(); cx.clip(path);
+  cx.fillStyle = INK; cx.fillRect(0, 0, W, H);
+  cx.fillStyle = "#000"; cx.beginPath(); cx.arc(pcx, pcy, EYE.pr*g.w, 0, 7); cx.fill();
+  cx.fillStyle = INK; cx.beginPath(); cx.arc(g.x0 + EYE.hc[0]*g.w, g.y0 + EYE.hc[1]*g.w, EYE.hr*g.w, 0, 7); cx.fill();
+  cx.restore();
+  if (lid > 0.97) { // closed: a single hairline
+    cx.strokeStyle = INK; cx.lineWidth = 1.5/Z; cx.stroke(path);
+  }
+  cx.restore();
+}
+
+/* ---------- manifesto ---------- */
+let chars = [], FS = 28;
+function layout() {
+  const longest = Math.max(...LINES.map(l => l.length));
+  FS = 40; cx.font = `300 ${FS}px "IBM Plex Mono", Menlo, "DejaVu Sans Mono", monospace`;
+  FS = Math.min(46, FS*(W*0.84)/(cx.measureText("m").width*longest));
+  cx.font = `300 ${FS}px "IBM Plex Mono", Menlo, "DejaVu Sans Mono", monospace`;
+  const cw = cx.measureText("m").width, lh = FS*1.4;
+  const y0 = H*0.44 - (LINES.length-1)*lh/2;
+  const old = chars; chars = [];
+  LINES.forEach((line, li) => {
+    const x0 = W/2 - line.length*cw/2 + cw/2;
+    [...line].forEach((ch, ci) => {
+      const o = old[chars.length] || {};
+      chars.push({ ch, li, hx: x0 + ci*cw, hy: y0 + li*lh, ox: o.ox||0, oy: o.oy||0, vx:0, vy:0, rot:0,
+        f1: 0.13 + Math.random()*0.25, f2: 0.11 + Math.random()*0.25, p1: Math.random()*9, p2: Math.random()*9,
+        g: null, gt: 0, hist: [] });
+    });
+  });
+}
+
+/* ---------- faders ---------- */
+const PARAMS = [ { id:'noise', v:0, held:false }, { id:'drift', v:0, held:false }, { id:'delay', v:0, held:false } ];
+const mixer = document.getElementById('mixer');
+PARAMS.forEach(p => {
+  const el = document.createElement('div'); el.className = 'fader';
+  el.innerHTML = `<div class="track"><div class="fill"></div><div class="knob"></div></div><b>${p.id}</b><i>0.00</i>`;
+  mixer.appendChild(el);
+  p.track = el.querySelector('.track'); p.fill = el.querySelector('.fill'); p.knob = el.querySelector('.knob'); p.out = el.querySelector('i');
+  const set = e => { const r = p.track.getBoundingClientRect(); p.v = clamp(1 - (e.clientY - r.top)/r.height); };
+  p.track.addEventListener('pointerdown', e => { p.held = true; p.track.classList.add('active'); p.track.setPointerCapture(e.pointerId); set(e); });
+  p.track.addEventListener('pointermove', e => { if (p.held) set(e); });
+  const up = () => { p.held = false; p.track.classList.remove('active'); };
+  p.track.addEventListener('pointerup', up); p.track.addEventListener('pointercancel', up);
+});
+function drawFaders() {
+  PARAMS.forEach(p => {
+    const h = p.track.clientHeight;
+    p.knob.style.top = ((1 - p.v)*(h - 14)) + 'px';
+    p.fill.style.height = (p.v*h) + 'px';
+    p.out.textContent = p.v.toFixed(2);
+  });
+}
+
+/* ---------- sound ---------- */
+let A = null, soundOn = true;
+function initAudio() {
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ac.createGain(); master.gain.value = 0;
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
+  master.connect(comp).connect(ac.destination);
+  // reverb
+  const irLen = ac.sampleRate*3.2, ir = ac.createBuffer(2, irLen, ac.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < irLen; i++) d[i] = (Math.random()*2-1)*Math.pow(1 - i/irLen, 3.2); }
+  const verb = ac.createConvolver(); verb.buffer = ir; const verbG = ac.createGain(); verbG.gain.value = 0.32;
+  verb.connect(verbG).connect(master);
+  // bed (A, E, C)
+  const bedF = ac.createBiquadFilter(); bedF.type = 'lowpass'; bedF.frequency.value = 900; bedF.Q.value = 0.6;
+  const bedG = ac.createGain(); bedG.gain.value = 0;
+  const pan = ac.createStereoPanner ? ac.createStereoPanner() : ac.createGain();
+  bedF.connect(bedG).connect(pan).connect(master);
+  const oscs = [[110,'sine',.5],[164.81,'triangle',.18],[220,'sine',.22],[261.63,'sine',.12]].map(([f,t,g]) => {
+    const o = ac.createOscillator(); o.type = t; o.frequency.value = f;
+    const gg = ac.createGain(); gg.gain.value = g; o.connect(gg).connect(bedF); o.start(); return o; });
+  // delay
+  const dl = ac.createDelay(2); dl.delayTime.value = 0.375;
+  const fb = ac.createGain(); fb.gain.value = 0; const wet = ac.createGain(); wet.gain.value = 0;
+  pan.connect(dl); dl.connect(fb).connect(dl); dl.connect(wet).connect(master); wet.connect(verb);
+  // noise
+  const nb = ac.createBuffer(1, ac.sampleRate*2, ac.sampleRate), nd = nb.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random()*2-1;
+  const ns = ac.createBufferSource(); ns.buffer = nb; ns.loop = true;
+  const nf = ac.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 2600; nf.Q.value = 0.8;
+  const ng = ac.createGain(); ng.gain.value = 0;
+  ns.connect(nf).connect(ng).connect(master); ns.start();
+  A = { ac, master, verb, bedG, bedF, oscs, pan, fb, wet, ng, nf, nb };
+}
+function kick(t0, amp=1) {
+  if (!A) return; const { ac, master, verb } = A;
+  const o = ac.createOscillator(), g = ac.createGain(), sub = ac.createOscillator(), sg = ac.createGain();
+  o.frequency.setValueAtTime(160, t0); o.frequency.exponentialRampToValueAtTime(42, t0 + 0.32);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.9*amp, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
+  sub.frequency.value = 41; sg.gain.setValueAtTime(0.0001, t0); sg.gain.exponentialRampToValueAtTime(0.5*amp, t0 + 0.02); sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
+  const sat = ac.createWaveShaper(); const cur = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i/512 - 1; cur[i] = Math.tanh(2.4*x); } sat.curve = cur;
+  o.connect(g); sub.connect(sg); g.connect(sat); sg.connect(sat); sat.connect(master); sat.connect(verb);
+  o.start(t0); sub.start(t0); o.stop(t0 + 1.3); sub.stop(t0 + 1.3);
+}
+function burst(t0, dur=0.12, amp=0.25, f=3000) {
+  if (!A) return; const { ac, master, nb } = A;
+  const s = ac.createBufferSource(); s.buffer = nb; s.playbackRate.value = 0.5 + Math.random();
+  const fl = ac.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = 2;
+  const g = ac.createGain(); g.gain.setValueAtTime(amp, t0); g.gain.setValueAtTime(0, t0 + dur);
+  s.connect(fl).connect(g).connect(master); s.start(t0, Math.random()); s.stop(t0 + dur + 0.02);
+}
+function blip(amp) {
+  if (!A) return; const { ac, master } = A; const t0 = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = 'square';
+  o.frequency.value = [880, 1320, 1760, 2637, 3520][Math.floor(Math.random()*5)];
+  g.gain.setValueAtTime(amp, t0); g.gain.setValueAtTime(0, t0 + 0.02 + Math.random()*0.04);
+  o.connect(g).connect(master); o.start(t0); o.stop(t0 + 0.08);
+}
+function updateAudio(N, D, L) {
+  if (!A) return; const { ac } = A, t = ac.currentTime;
+  A.ng.gain.setTargetAtTime(0.004 + N*0.11, t, 0.05);
+  A.nf.frequency.setTargetAtTime(1800 + N*3500, t, 0.1);
+  A.fb.gain.setTargetAtTime(L*0.62, t, 0.1); A.wet.gain.setTargetAtTime(L*0.7, t, 0.1);
+  A.oscs.forEach((o, i) => o.detune.setTargetAtTime(D*40*Math.sin(performance.now()/700 + i*1.7), t, 0.1));
+  if (A.pan.pan) A.pan.pan.setTargetAtTime(D*0.7*Math.sin(performance.now()/900), t, 0.1);
+  A.bedF.frequency.setTargetAtTime(700 + 400*Math.sin(performance.now()/5200) + N*900, t, 0.2);
+}
+
+/* ---------- state machine ---------- */
+let mode = 'sleep', t0 = performance.now(), wakeAt = 0, onAt = 0;
+const hint = document.getElementById('hint');
+function placeHint() { const g = eyeGeom(); hint.style.top = (g.y0 + EYE.h*g.w + 40) + 'px'; }
+
+function wake() {
+  if (mode !== 'sleep') return;
+  mode = 'waking'; wakeAt = performance.now();
+  hint.style.opacity = 0;
+  try {
+    if (!A || A.ac.state !== 'running') throw 0;
+    const t = A.ac.currentTime + 0.03;
+    kick(t); burst(t, 0.1, 0.3); burst(t + 0.9, 0.06, 0.2, 5000); kick(t + 0.9, 0.7);
+    burst(t + 1.85, 0.18, 0.35, 2200); kick(t + 1.9, 0.85);
+    A.bedG.gain.setValueAtTime(0, t + 1.9); A.bedG.gain.linearRampToValueAtTime(0.14, t + 3.5);
+  } catch (e) {}
+}
+function unlockAudio() {
+  if (A) { A.ac.resume(); return; }
+  try {
+    initAudio(); A.ac.resume();
+    const t = A.ac.currentTime + 0.03;
+    A.master.gain.setValueAtTime(soundOn ? 0.9 : 0, t);
+    if (mode !== 'sleep') { kick(t, 0.8); burst(t, 0.1, 0.25); A.bedG.gain.linearRampToValueAtTime(0.14, t + 1.5); }
+    else { A.bedG.gain.setValueAtTime(0, t + 2.4); A.bedG.gain.linearRampToValueAtTime(0.14, t + 4); }
+    sndBtn.textContent = 'sound: ' + (soundOn ? 'on' : 'off');
+  } catch (e) { A = null; }
+}
+addEventListener('pointerdown', unlockAudio, { capture:true });
+setTimeout(wake, 700);
+
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => {
+  const tt = document.getElementById('toast');
+  tt.textContent = b.dataset.m + ': module not installed';
+  tt.classList.add('show'); blip(0.05); setTimeout(() => blip(0.04), 70);
+  clearTimeout(tt._h); tt._h = setTimeout(() => tt.classList.remove('show'), 1400);
+}));
+const sndBtn = document.getElementById('snd');
+sndBtn.addEventListener('click', () => {
+  if (sndBtn.textContent.includes('tap')) return;
+  soundOn = !soundOn; sndBtn.textContent = 'sound: ' + (soundOn ? 'on' : 'off');
+  if (A) A.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, A.ac.currentTime, 0.05);
+});
+document.addEventListener('visibilitychange', () => { if (!A) return; document.hidden ? A.ac.suspend() : A.ac.resume(); });
+
+const clock = document.getElementById('clock');
+const fmt = new Intl.DateTimeFormat('en-GB', { timeZone:'Europe/Rome', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+function tickClock() { clock.textContent = 'message_01'; }
+
+/* automatic cycle: readable, degrades, recomposes */
+const CLEAN = 1.2, RAMP = 0.6, HOLD = 4.2, BACK = 3.2, P = CLEAN + RAMP + HOLD + BACK;
+function cycle(s) {
+  const u = s % P;
+  if (u < CLEAN) return 0;
+  if (u < CLEAN + RAMP) return ease((u - CLEAN)/RAMP);
+  if (u < CLEAN + RAMP + HOLD) return 1;
+  return 1 - ease((u - CLEAN - RAMP - HOLD)/BACK);
+}
+
+function glitchSlices(amount) {
+  const n = Math.floor(amount*6);
+  for (let i = 0; i < n; i++) {
+    const h = 2 + Math.random()*16, y = Math.random()*H, dx = rnd(amount*40);
+    cx.drawImage(cv, 0, y*DPR, W*DPR, h*DPR, dx, y, W, h);
+    if (Math.random() < 0.35) { cx.globalCompositeOperation = 'multiply'; cx.fillStyle = SIG; cx.fillRect(0, y, W, h); cx.globalCompositeOperation = 'source-over'; }
+    if (Math.random() < amount*0.25) { cx.fillStyle = SIG; cx.fillRect(Math.random()*W*0.7, y, 20 + Math.random()*W*0.5, Math.max(1, h*0.25)); }
+  }
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last)/1000); last = now;
+  cx.fillStyle = "#000"; cx.fillRect(0, 0, W, H);
+
+  if (mode === 'sleep') {
+    const breathe = 0.97 + 0.03*Math.sin(now/600)*0; // closed lid
+    drawEye(0.985, 1);
+    placeHint();
+  } else if (mode === 'waking') {
+    const s = (now - wakeAt)/1000;
+    const lid = 0.985*(1 - eout((s - 0.08)/0.32));
+    const punch = 1 + 0.06*Math.exp(-Math.max(0, s - 0.9)*9)*(s > 0.9 ? 1 : 0);
+    const Z = punch*Math.exp(Math.log(16)*ein((s - 1.25)/0.62));
+    if (s < 1.9) {
+      drawEye(lid, Z);
+      if (s < 0.2 || (s > 0.9 && s < 0.98) || (s > 1.8)) glitchSlices(0.9);
+      if (s > 0.45 && s < 1.25) {
+        cx.font = `700 15px "IBM Plex Mono", Menlo, "DejaVu Sans Mono", monospace`; cx.fillStyle = MUTED; cx.textAlign = 'center';
+        const g = eyeGeom(); cx.fillText('initializing system' + '...'.slice(0, 1 + Math.floor(s*6) % 3), W/2, g.y0 + EYE.h*g.w + 48);
+      }
+    } else { mode = 'on'; onAt = now; document.body.classList.add('on'); }
+  }
+
+  if (mode === 'on') {
+    const s = (now - onAt)/1000;
+    PARAMS.forEach(p => { if (!p.held) p.v += (0 - p.v)*(1 - Math.exp(-dt/1.1)); if (p.v < 0.002 && !p.held) p.v = 0; });
+    const d = cycle(s);
+    const u = s % P, pre = u < CLEAN ? Math.pow(u/CLEAN, 1.6) : 0; // build-up before the break
+    const intro = 1 - ease(s/0.35); // short glitch on entering
+    const N = clamp(d*0.55 + PARAMS[0].v);
+    const D = clamp(d*0.6 + PARAMS[1].v);
+    const L = clamp(d*0.35 + PARAMS[2].v);
+    updateAudio(Math.max(N, pre*0.06), D, L);
+
+    cx.font = `300 ${FS}px "IBM Plex Mono", Menlo, "DejaVu Sans Mono", monospace`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    const R = Math.min(W, H)*0.3;
+    let swaps = 0;
+    chars.forEach((c, i) => {
+      // drift: each letter follows its own slow path away from home
+      const tx = D*R*Math.sin(s*c.f1 + c.p1)*Math.sin(s*0.21 + i), ty = D*R*0.8*Math.cos(s*c.f2 + c.p2);
+      c.vx += (tx - c.ox)*dt*5; c.vy += (ty - c.oy)*dt*5; c.vx *= 0.86; c.vy *= 0.86;
+      c.ox += c.vx; c.oy += c.vy; c.rot = D*0.9*Math.sin(s*c.f2*2 + c.p1);
+      // noise: glyph swaps and jitter
+      if (c.ch !== ' ' && Math.random() < N*N*0.12) { c.g = GLYPHS[Math.floor(Math.random()*GLYPHS.length)]; c.gt = 0.05 + Math.random()*0.25; swaps++; }
+      if (c.gt > 0) { c.gt -= dt; if (c.gt <= 0) c.g = null; }
+      const jx = N > 0.05 ? rnd(N*5) : 0;
+      const x = c.hx + c.ox + jx, y = c.hy + c.oy;
+      c.hist.unshift([x, y, c.rot]); if (c.hist.length > 40) c.hist.pop();
+      const glyph = c.g || c.ch;
+      // delay: echoes trailing behind
+      if (L > 0.02) for (let k = 1; k <= 4; k++) {
+        const h = c.hist[Math.min(c.hist.length - 1, k*8)]; if (!h) break;
+        cx.globalAlpha = L*0.42*(1 - k/5);
+        cx.save(); cx.translate(h[0], h[1]); cx.rotate(h[2]); cx.fillStyle = k % 2 ? SIG : INK; cx.fillText(glyph, 0, 0); cx.restore();
+      }
+      cx.globalAlpha = 1;
+      if (N > 0.08 && Math.random() < 0.15 + N*0.6) { cx.fillStyle = c.li ? INK : SIG; cx.fillText(glyph, x - 2 - N*6, y + rnd(N*2)); }
+      cx.save(); cx.translate(x, y); cx.rotate(c.rot); const base = c.li ? SIG : INK, alt = c.li ? INK : SIG; cx.fillStyle = c.g ? alt : base; cx.fillText(glyph, 0, 0); cx.restore();
+    });
+    if (swaps && Math.random() < 0.5) blip(0.012 + N*0.03);
+    if (N > 0.15) glitchSlices(N);
+    if (N > 0.35) { // scanlines
+      cx.fillStyle = 'rgba(0,0,0,' + (N*0.35) + ')';
+      for (let y = 0; y < H; y += 3) cx.fillRect(0, y, W, 1);
+    }
+    if (Math.random() < N*0.05) { const t = A ? A.ac.currentTime : 0; burst(t, 0.04 + Math.random()*0.08, 0.06 + N*0.14, 1500 + Math.random()*4000); }
+    drawFaders();
+    if (Math.floor(now/250) !== frame._c) { frame._c = Math.floor(now/250); tickClock(); }
+  }
+  requestAnimationFrame(frame);
+}
+
+addEventListener('resize', resize);
+(document.fonts ? document.fonts.load('300 28px "IBM Plex Mono"') : Promise.resolve()).catch(() => {}).then(() => {
+  resize(); tickClock(); requestAnimationFrame(frame);
+});
+})();
+</script>
+</body>
+</html>
