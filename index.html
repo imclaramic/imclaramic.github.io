@@ -112,7 +112,11 @@ function drawEye(lid, Z) {
   path.closePath();
   cx.save(); cx.clip(path);
   cx.fillStyle = INK; cx.fillRect(0, 0, W, H);
+  cx.restore();
+  // pupil drawn without the clip: outside the eye it is black on black, and its edge
+  // covers the anti-aliased rim of the white, so no thin light line is left on the lid
   cx.fillStyle = "#000"; cx.beginPath(); cx.arc(pcx, pcy, EYE.pr*g.w, 0, 7); cx.fill();
+  cx.save(); cx.clip(path);
   cx.fillStyle = INK; cx.beginPath(); cx.arc(g.x0 + EYE.hc[0]*g.w, g.y0 + EYE.hc[1]*g.w, EYE.hr*g.w, 0, 7); cx.fill();
   cx.restore();
   if (lid > 0.97) { // closed: a single hairline
