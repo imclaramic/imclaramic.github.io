@@ -2,18 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>proj.zip processing...</title>
+<meta name="description" content="proj.zip processing... the signal is there. it needs time.">
+<link rel="canonical" href="https://www.imclaramic.com/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.imclaramic.com/">
+<meta property="og:title" content="proj.zip processing...">
+<meta property="og:description" content="the signal is there. it needs time.">
+<meta property="og:image" content="https://www.imclaramic.com/favicon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@imclaramic">
 <link rel="icon" href="favicon.ico?v=2" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=2">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#000000">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@200;300;400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap">
 <style>
   :root { --ground:#000000; --ink:#efefef; --muted:#9a9a9a; --signal:#00ffbb; }
   * { box-sizing:border-box; margin:0; padding:0; }
   html, body { height:100%; background:var(--ground); color:var(--ink); overflow:hidden;
-    font-family:"IBM Plex Mono", Menlo, monospace; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+    font-family:"IBM Plex Mono", Menlo, monospace; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; touch-action:manipulation; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
+  :focus { outline:none; }
+  :focus-visible { outline:1.5px solid var(--signal); outline-offset:4px; }
   canvas { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
   .ui { position:fixed; left:0; right:0; padding:16px 20px; display:flex; justify-content:space-between; align-items:flex-start;
     font-size:15px; line-height:1.4; opacity:0; transition:opacity .6s; pointer-events:none; }
@@ -78,17 +92,22 @@
   .toast.show { opacity:1; pointer-events:auto; }
   .hint { position:fixed; left:0; right:0; text-align:center; font-size:15px; font-weight:700; color:var(--muted);
     pointer-events:none; transition:opacity .3s; }
+  @media (prefers-reduced-motion: reduce) {
+    .toast { transition:opacity .25s; }
+    .toast.show .tw, .toast.show::before, .toast.show::after { animation:none; }
+  }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div class="hint" id="hint">proj.zip_sleep</div>
+<canvas id="c" aria-hidden="true"></canvas>
+<p class="sr" id="sr" aria-live="polite">the signal is there. it needs time.</p>
+<div class="hint" id="hint" aria-hidden="true">proj.zip_sleep</div>
 
 <div class="ui top">
-  <div class="brand">proj.zip <em>processing<span id="dots" style="display:inline-block;width:3ch;text-align:left;color:inherit;font-weight:inherit">...</span></em></div>
+  <div class="brand">proj.zip <em>processing<span id="dots" aria-hidden="true" style="display:inline-block;width:3ch;text-align:left;color:inherit;font-weight:inherit">...</span></em></div>
   <nav>
-    <button data-m="rooms" data-locked><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>rooms</button>
-    <button data-m="links" id="linksBtn" class="open">links</button>
+    <button data-m="rooms" data-locked aria-label="rooms (locked)"><svg viewBox="0 0 9 11" aria-hidden="true"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>rooms</button>
+    <button data-m="links" id="linksBtn" class="open" aria-expanded="false" aria-controls="links">links</button>
   </nav>
 </div>
 <div class="links" id="links">
@@ -98,7 +117,7 @@
 
 <div class="ui bottom">
   <div class="mixer" id="mixer"></div>
-  <div class="meta"><span id="clock">message_01</span><button id="snd">sound: tap to listen</button></div>
+  <div class="meta"><span id="msgName">message_01</span><button id="snd">sound: tap to listen</button></div>
 </div>
 
 <div class="toast" id="toast"><div class="tw"><b>module not installed</b><span>try again later.</span></div></div>
@@ -121,11 +140,15 @@ function slotNow() {
   if (h === 0 && m === 0) return '0000'; if (h === 11 && m === 11) return '1111'; if (h === 22 && m === 22) return '2222';
   return 'base';
 }
-window.forceSlot = k => { FORCE = k; checkSlot(); };
+// testing only: ?slot=0000, ?slot=1111 or ?slot=2222 shows a hidden message at any time
+try { const q = new URLSearchParams(location.search).get('slot'); if (q && MSGS[q]) FORCE = q; } catch (e) {}
+const RM = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+const srEl = document.getElementById('sr');
 function checkSlot() {
   const k = slotNow(), next = MSGS[k];
   if (next === MSG) return;
   MSG = next; LINES = MSG.lines; chars = []; layout(); msgAt = performance.now(); glitchKick();
+  srEl.textContent = LINES.join(' ');
 }
 const INK = "#efefef", SIG = "#00ffbb", MUTED = "#9a9a9a";
 const GLYPHS = "▒░▓#%@_/\\|01<>*+=~:";
@@ -137,7 +160,7 @@ function resize() {
   W = innerWidth; H = innerHeight;
   cv.width = W * DPR; cv.height = H * DPR;
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  layout();
+  layout(); placeHint(); scan = null;
 }
 
 const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
@@ -212,12 +235,17 @@ const mixer = document.getElementById('mixer');
 const HITS = { noise: () => { if (A) burst(A.ac.currentTime, 0.12, 0.3, 3000); }, drift: () => driftSound(), delay: () => { if (A) kick(A.ac.currentTime, 0.6); } };
 PARAMS.forEach(p => {
   const el = document.createElement('div'); el.className = 'fader';
-  el.innerHTML = `<div class="pad"><div class="fill"></div></div><b>${p.id}</b><i>0.00</i>`;
+  el.innerHTML = `<div class="pad" role="button" tabindex="0" aria-label="${p.id}"><div class="fill"></div></div><b aria-hidden="true">${p.id}</b><i aria-hidden="true">0.00</i>`;
   mixer.appendChild(el);
   p.track = el.querySelector('.pad'); p.fill = el.querySelector('.fill'); p.out = el.querySelector('i');
   p.track.addEventListener('pointerdown', e => { p.held = true; p.track.classList.add('active'); p.track.setPointerCapture(e.pointerId); p.v = Math.max(p.v, 0.6); HITS[p.id](); });
   const up = () => { p.held = false; p.track.classList.remove('active'); };
   p.track.addEventListener('pointerup', up); p.track.addEventListener('pointercancel', up);
+  // keyboard: hold Space or Enter, like holding the pad
+  p.track.addEventListener('keydown', e => { if (e.key !== ' ' && e.key !== 'Enter') return; e.preventDefault(); if (e.repeat || p.held) return;
+    p.held = true; p.track.classList.add('active'); p.v = Math.max(p.v, 0.6); HITS[p.id](); });
+  p.track.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') up(); });
+  p.track.addEventListener('blur', up);
 });
 // a locked item lights up green, then the error screen opens
 function lockedHit(...els) {
@@ -232,9 +260,11 @@ function lockedHit(...els) {
 // fourth pad: the game, locked for now
 (() => {
   const el = document.createElement('div'); el.className = 'fader off';
-  el.innerHTML = `<div class="pad locked"><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg></div><b>boot</b><i>&nbsp;</i>`;
+  el.innerHTML = `<div class="pad locked" role="button" tabindex="0" aria-label="boot (locked)"><svg viewBox="0 0 9 11" aria-hidden="true"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg></div><b aria-hidden="true">boot</b><i aria-hidden="true">&nbsp;</i>`;
   mixer.appendChild(el);
-  el.querySelector('.pad').addEventListener('click', () => lockedHit(el.querySelector('.pad'), el));
+  const pad = el.querySelector('.pad');
+  pad.addEventListener('click', () => lockedHit(pad, el));
+  pad.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); lockedHit(pad, el); } });
 })();
 
 function drawFaders() {
@@ -245,7 +275,7 @@ function drawFaders() {
 }
 
 /* ---------- sound ---------- */
-let A = null, soundOn = true;
+let A = null, soundOn = true, sndSkipUntil = 0;
 function initAudio() {
   const ac = new (window.AudioContext || window.webkitAudioContext)();
   const master = ac.createGain(); master.gain.value = 0;
@@ -368,7 +398,7 @@ function iosUnlock() {
   } catch (e) {}
   try { const b = A.ac.createBuffer(1, 1, 22050), s = A.ac.createBufferSource(); s.buffer = b; s.connect(A.ac.destination); s.start(0); } catch (e) {}
 }
-function unlockAudio() {
+function unlockAudio(e) {
   if (A) { iosUnlock(); if (A.ac.state !== 'running') A.ac.resume(); return; }
   try {
     initAudio(); iosUnlock(); A.ac.resume();
@@ -377,7 +407,9 @@ function unlockAudio() {
     if (mode !== 'sleep') { kick(t, 0.8); burst(t, 0.1, 0.25); A.bedG.gain.linearRampToValueAtTime(0.14, t + 1.5); }
     else { A.bedG.gain.setValueAtTime(0, t + 2.4); A.bedG.gain.linearRampToValueAtTime(0.14, t + 4); }
     sndBtn.textContent = 'sound: ' + (soundOn ? 'on' : 'off');
-  } catch (e) { A = null; }
+    // the gesture that switches the sound on must not also switch it off in the button's own click
+    if (e && e.target && sndBtn.contains(e.target)) sndSkipUntil = performance.now() + 1000;
+  } catch (err) { A = null; }
 }
 ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, unlockAudio, { capture:true }));
 setTimeout(wake, 700);
@@ -388,21 +420,20 @@ linksBtn.addEventListener('click', e => {
   e.stopPropagation();
   const on = !linksEl.classList.contains('show');
   linksEl.style.top = (document.querySelector('nav').getBoundingClientRect().bottom + 22) + 'px';
-  linksEl.classList.toggle('show', on); linksBtn.classList.toggle('on', on);
+  linksEl.classList.toggle('show', on); linksBtn.classList.toggle('on', on); linksBtn.setAttribute('aria-expanded', on);
   blip(on ? 0.05 : 0.03);
 });
-document.addEventListener('click', e => { if (!linksEl.contains(e.target) && e.target !== linksBtn) { linksEl.classList.remove('show'); linksBtn.classList.remove('on'); } });
+document.addEventListener('click', e => { if (!linksEl.contains(e.target) && e.target !== linksBtn) { linksEl.classList.remove('show'); linksBtn.classList.remove('on'); linksBtn.setAttribute('aria-expanded', 'false'); } });
 const sndBtn = document.getElementById('snd');
 sndBtn.addEventListener('click', () => {
-  if (sndBtn.textContent.includes('tap')) return;
+  if (sndBtn.textContent.includes('tap') || performance.now() < sndSkipUntil) { sndSkipUntil = 0; return; }
   soundOn = !soundOn; sndBtn.textContent = 'sound: ' + (soundOn ? 'on' : 'off');
   if (A) A.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, A.ac.currentTime, 0.05);
 });
 document.addEventListener('visibilitychange', () => { if (!A) return; if (document.hidden) { A.ac.suspend(); if (silentEl) silentEl.pause(); } else { A.ac.resume(); if (silentEl && soundOn) silentEl.play().catch(() => {}); } });
 
-const clock = document.getElementById('clock');
-const fmt = new Intl.DateTimeFormat('en-GB', { timeZone:'Europe/Rome', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
-function tickClock() { checkSlot(); clock.textContent = MSG.name; }
+const msgName = document.getElementById('msgName');
+function tickClock() { checkSlot(); msgName.textContent = MSG.name; }
 let kickAt = -9999; function glitchKick() { kickAt = performance.now(); }
 
 /* automatic cycle: readable, degrades, recomposes */
@@ -416,6 +447,7 @@ function cycle(s) {
 }
 
 function glitchSlices(amount) {
+  if (RM.matches) return;
   const n = Math.floor(amount*6);
   for (let i = 0; i < n; i++) {
     const h = 2 + Math.random()*16, y = Math.random()*H, dx = rnd(amount*40);
@@ -425,20 +457,26 @@ function glitchSlices(amount) {
   }
 }
 
+// scanlines: one fill with a 1-in-3 line pattern instead of a rectangle per line
+let scan = null;
+function scanlines(a) {
+  if (!scan) { const t = document.createElement('canvas'); t.width = 1; t.height = 3 * DPR; const tc = t.getContext('2d');
+    tc.fillStyle = '#000'; tc.fillRect(0, 0, 1, DPR); scan = cx.createPattern(t, 'repeat'); }
+  cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalAlpha = a; cx.fillStyle = scan; cx.fillRect(0, 0, W*DPR, H*DPR); cx.restore();
+}
+
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last)/1000); last = now;
   cx.fillStyle = "#000"; cx.fillRect(0, 0, W, H);
 
   if (mode === 'sleep') {
-    const breathe = 0.97 + 0.03*Math.sin(now/600)*0; // closed lid
-    drawEye(0.985, 1);
-    placeHint();
+    drawEye(0.985, 1); // closed lid
   } else if (mode === 'waking') {
     const s = (now - wakeAt)/1000;
     const lid = 0.985*(1 - eout((s - 0.08)/0.32));
     const punch = 1 + 0.06*Math.exp(-Math.max(0, s - 0.9)*9)*(s > 0.9 ? 1 : 0);
-    const Z = punch*Math.exp(Math.log(16)*ein((s - 1.25)/0.62));
+    const Z = RM.matches ? 1 : punch*Math.exp(Math.log(16)*ein((s - 1.25)/0.62));
     if (s < 1.9) {
       drawEye(lid, Z);
       if (s < 0.2 || (s > 0.9 && s < 0.98) || (s > 1.8)) glitchSlices(0.9);
@@ -453,7 +491,7 @@ function frame(now) {
     const s = (now - onAt)/1000;
     PARAMS.forEach(p => { if (p.held) p.v += (1 - p.v)*(1 - Math.exp(-dt/0.25)); if (!p.held) p.v += (0 - p.v)*(1 - Math.exp(-dt/1.1)); if (p.v < 0.002 && !p.held) p.v = 0; });
     const fx = MSG.fx, ms = (now - msgAt)/1000;
-    const d = fx === 'base' ? cycle(s) : 0;
+    const d = fx === 'base' ? cycle(s)*(RM.matches ? 0.35 : 1) : 0;   // reduced motion: a gentler break
     const kick = Math.max(0, 1 - (now - kickAt)/450);
     const u = s % P, pre = u < CLEAN ? Math.pow(u/CLEAN, 1.6) : 0; // build-up before the break
     const intro = 1 - ease(s/0.35); // short glitch on entering
@@ -489,7 +527,7 @@ function frame(now) {
       let glyph = c.g || c.ch, a = 1, mx = 0, my = 0;
       if (fx === 'forget') {
         const u = ms % 9, out = 1.5 + c.r*3.0, back = 6.5 + c.r*1.2;
-        if (u > out && u < back) a = u < out + 0.3 ? (Math.random() < 0.5 ? 1 : 0.15) : 0;
+        if (u > out && u < back) a = u < out + 0.3 ? (RM.matches ? 1 - (u - out)/0.3 : (Math.random() < 0.5 ? 1 : 0.15)) : 0;
         if (u >= back && u < back + 0.18) glyph = GLYPHS[Math.floor(Math.random()*GLYPHS.length)];
       }
       if (fx === 'remember') {
@@ -514,16 +552,13 @@ function frame(now) {
     });
     if (swaps && Math.random() < 0.5) blip(0.012 + N*0.03);
     if (N > 0.15) glitchSlices(N);
-    if (nU > 0.05) {   // noise from the visitor: torn bands and inverted blocks, on top of the explosion
+    if (nU > 0.05 && !RM.matches) {   // noise from the visitor: torn bands and inverted blocks, on top of the explosion
       glitchSlices(nU*1.4);
       for (let i = 0; i < Math.floor(nU*5); i++) { const y = Math.random()*H, h = 1 + Math.random()*nU*10;
         cx.fillStyle = Math.random() < 0.5 ? SIG : INK; cx.globalAlpha = 0.25 + nU*0.5; cx.fillRect(0, y, W, h); cx.globalAlpha = 1; }
       if (Math.random() < nU*0.12) { cx.globalCompositeOperation = 'difference'; cx.fillStyle = '#EFEFEF'; cx.fillRect(0, Math.random()*H, W, 20 + Math.random()*80*nU); cx.globalCompositeOperation = 'source-over'; }
     }
-    if (N > 0.35) { // scanlines
-      cx.fillStyle = 'rgba(0,0,0,' + (N*0.35) + ')';
-      for (let y = 0; y < H; y += 3) cx.fillRect(0, y, W, 1);
-    }
+    if (N > 0.35 && !RM.matches) scanlines(N*0.35);
     if (Math.random() < N*0.05) { const t = A ? A.ac.currentTime : 0; burst(t, 0.04 + Math.random()*0.08, 0.06 + N*0.14, 1500 + Math.random()*4000); }
     drawFaders();
     if (Math.floor(now/250) !== frame._c) { frame._c = Math.floor(now/250); tickClock(); }
@@ -534,7 +569,8 @@ function frame(now) {
 const dotsEl = document.getElementById('dots');
 let dotsN = 0; (function dotsTick(){ dotsN = (dotsN + 1) % 4; dotsEl.textContent = '.'.repeat(dotsN); setTimeout(dotsTick, 450); })();
 addEventListener('resize', resize);
-(document.fonts ? document.fonts.load('300 28px "IBM Plex Mono"') : Promise.resolve()).catch(() => {}).then(() => {
+// wait for the weights the canvas draws with (500 for the message, 700 for the boot text), then lay out
+(document.fonts ? Promise.all([document.fonts.load('500 28px "IBM Plex Mono"'), document.fonts.load('700 15px "IBM Plex Mono"')]) : Promise.resolve()).catch(() => {}).then(() => {
   resize(); tickClock(); requestAnimationFrame(frame);
 });
 })();
