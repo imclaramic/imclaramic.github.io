@@ -79,7 +79,28 @@
 <script>
 (() => {
 const EYE = {"x":[0.0,0.0158,0.0325,0.0492,0.0659,0.0826,0.0994,0.1161,0.1328,0.1495,0.1662,0.1829,0.1996,0.2163,0.2331,0.2498,0.2665,0.2832,0.2999,0.3166,0.3333,0.3491,0.3658,0.3825,0.3993,0.416,0.4327,0.4494,0.4661,0.4828,0.4995,0.5162,0.533,0.5497,0.5664,0.5831,0.5998,0.6165,0.6332,0.65,0.6667,0.6825,0.6992,0.7159,0.7326,0.7493,0.766,0.7827,0.7994,0.8162,0.8329,0.8496,0.8663,0.883,0.8997,0.9164,0.9331,0.9499,0.9666,0.9833,1.0],"t":[0.0784,0.0728,0.0681,0.0635,0.0589,0.0542,0.0496,0.0459,0.0422,0.0384,0.0347,0.031,0.0282,0.0254,0.0227,0.0199,0.0171,0.0143,0.0124,0.0106,0.0088,0.0072,0.0057,0.0044,0.0033,0.0023,0.0015,0.0008,0.0004,0.0001,0.0,0.0,0.0002,0.0006,0.0012,0.0019,0.0028,0.0039,0.0051,0.0065,0.0081,0.0098,0.0115,0.0143,0.0162,0.0189,0.0217,0.0245,0.0273,0.0301,0.0338,0.0375,0.0412,0.0449,0.0487,0.0533,0.0579,0.0626,0.0672,0.0728,0.0784],"b":[0.0784,0.0914,0.1034,0.1155,0.1266,0.1378,0.1489,0.1582,0.1684,0.1777,0.1861,0.1944,0.2028,0.2102,0.2176,0.2241,0.2306,0.2371,0.2427,0.2474,0.252,0.2566,0.2603,0.2641,0.2668,0.2696,0.2715,0.2733,0.2743,0.2743,0.2743,0.2743,0.2733,0.2715,0.2696,0.2668,0.2641,0.2613,0.2576,0.2529,0.2483,0.2436,0.239,0.2334,0.2269,0.2204,0.2139,0.2065,0.1991,0.1907,0.1824,0.174,0.1647,0.1554,0.1461,0.1359,0.1248,0.1146,0.1025,0.0904,0.0784],"pc":[0.5,0.0566],"pr":0.1967,"hc":[0.3407,0.1051],"hr":0.0372,"h":0.2743};
-const LINES = ["the signal is there.", "it needs time."];
+const MSGS = {
+  base: { name: 'message_01',   fx: 'base',     lines: ["the signal is there.", "it needs time."] },
+  '0000': { name: 'message_0000', fx: 'forget',   lines: ["the system forgets.", "this was not scheduled."] },
+  '1111': { name: 'message_1111', fx: 'remember', lines: ["the system remembers.", "you were not supposed", "to see this."] },
+  '2222': { name: 'message_2222', fx: 'repeat',   lines: ["the system repeats.", "this was not scheduled."] }
+};
+let MSG = MSGS.base, LINES = MSG.lines, msgAt = 0, FORCE = null;
+// hidden moments: the visitor's own clock. 24h clocks: 00:00 11:11 22:22. 12h clocks: 11:11 am and pm.
+const H12 = /h1[12]/.test(new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle || '');
+function slotNow() {
+  if (FORCE) return FORCE;
+  const d = new Date(), h = d.getHours(), m = d.getMinutes();
+  if (H12) { if (h === 11 && m === 11) return '1111'; if (h === 23 && m === 11) return '2222'; return 'base'; }
+  if (h === 0 && m === 0) return '0000'; if (h === 11 && m === 11) return '1111'; if (h === 22 && m === 22) return '2222';
+  return 'base';
+}
+window.forceSlot = k => { FORCE = k; checkSlot(); };
+function checkSlot() {
+  const k = slotNow(), next = MSGS[k];
+  if (next === MSG) return;
+  MSG = next; LINES = MSG.lines; chars = []; layout(); msgAt = performance.now(); glitchKick();
+}
 const INK = "#efefef", SIG = "#00ffbb", MUTED = "#9a9a9a";
 const GLYPHS = "▒░▓#%@_/\\|01<>*+=~:";
 
@@ -139,13 +160,13 @@ function drawEye(lid, Z) {
 }
 
 /* ---------- manifesto ---------- */
-let chars = [], FS = 28;
+let chars = [], FS = 28, LH = 40;
 function layout() {
   const longest = Math.max(...LINES.map(l => l.length));
   FS = 40; cx.font = `300 ${FS}px "IBM Plex Mono", Menlo, "DejaVu Sans Mono", monospace`;
   FS = Math.min(46, FS*(W*0.84)/(cx.measureText("m").width*longest));
   cx.font = `300 ${FS}px "IBM Plex Mono", Menlo, "DejaVu Sans Mono", monospace`;
-  const cw = cx.measureText("m").width, lh = FS*1.4;
+  const cw = cx.measureText("m").width, lh = FS*1.4; LH = lh;
   const y0 = H*0.44 - (LINES.length-1)*lh/2;
   const old = chars; chars = [];
   LINES.forEach((line, li) => {
@@ -154,7 +175,7 @@ function layout() {
       const o = old[chars.length] || {};
       chars.push({ ch, li, hx: x0 + ci*cw, hy: y0 + li*lh, ox: o.ox||0, oy: o.oy||0, vx:0, vy:0, rot:0,
         f1: 0.13 + Math.random()*0.25, f2: 0.11 + Math.random()*0.25, p1: Math.random()*9, p2: Math.random()*9,
-        g: null, gt: 0, hist: [] });
+        g: null, gt: 0, hist: [], r: Math.random(), sx: rnd(W*0.42), sy: rnd(H*0.36) });
     });
   });
 }
@@ -316,7 +337,8 @@ document.addEventListener('visibilitychange', () => { if (!A) return; if (docume
 
 const clock = document.getElementById('clock');
 const fmt = new Intl.DateTimeFormat('en-GB', { timeZone:'Europe/Rome', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
-function tickClock() { clock.textContent = 'message_01'; }
+function tickClock() { checkSlot(); clock.textContent = MSG.name; }
+let kickAt = -9999; function glitchKick() { kickAt = performance.now(); }
 
 /* automatic cycle: readable, degrades, recomposes */
 const CLEAN = 1.2, RAMP = 0.6, HOLD = 4.2, BACK = 3.2, P = CLEAN + RAMP + HOLD + BACK;
@@ -365,10 +387,21 @@ function frame(now) {
   if (mode === 'on') {
     const s = (now - onAt)/1000;
     PARAMS.forEach(p => { if (!p.held) p.v += (0 - p.v)*(1 - Math.exp(-dt/1.1)); if (p.v < 0.002 && !p.held) p.v = 0; });
-    const d = cycle(s);
+    const fx = MSG.fx, ms = (now - msgAt)/1000;
+    const d = fx === 'base' ? cycle(s) : 0;
+    const kick = Math.max(0, 1 - (now - kickAt)/450);
     const u = s % P, pre = u < CLEAN ? Math.pow(u/CLEAN, 1.6) : 0; // build-up before the break
     const intro = 1 - ease(s/0.35); // short glitch on entering
-    const N = clamp(d*0.55 + PARAMS[0].v);
+    let fxN = 0, copies = [];
+    if (fx === 'forget') { const u = ms % 9; fxN = (u > 1.4 && u < 4.8) ? 0.05 : (u > 6.4 && u < 7.8 ? 0.12 : 0); }
+    if (fx === 'remember') { const u = ms % 9; fxN = (u > 7 && u < 7.7) ? 0.5 : 0; }
+    if (fx === 'repeat') {
+      const u = ms % 6;
+      for (let k = 0; k < 5; k++) { const at = 1.2 + k*0.45; if (u > at) { const age = u - at, fade = u < 3.6 ? 1 : Math.max(0, 1 - (u - 3.6)/1.6);
+        copies.push({ dy: (k % 2 ? -1 : 1)*Math.ceil((k+1)/2)*LH*(LINES.length + 0.9), a: (0.55 - k*0.08)*fade, fresh: age < 0.09 }); } }
+      if (copies.some(c => c.fresh)) { fxN = 0.45; if (!frame._rep || now - frame._rep > 200) { frame._rep = now; blip(0.05); } }
+    }
+    const N = clamp(d*0.55 + PARAMS[0].v + fxN + kick*0.8);
     const D = clamp(d*0.6 + PARAMS[1].v);
     const L = clamp(d*0.35 + PARAMS[2].v);
     updateAudio(Math.max(N, pre*0.06), D, L);
@@ -387,7 +420,21 @@ function frame(now) {
       const jx = N > 0.05 ? rnd(N*5) : 0;
       const x = c.hx + c.ox + jx, y = c.hy + c.oy;
       c.hist.unshift([x, y, c.rot]); if (c.hist.length > 40) c.hist.pop();
-      const glyph = c.g || c.ch;
+      let glyph = c.g || c.ch, a = 1, mx = 0, my = 0;
+      if (fx === 'forget') {
+        const u = ms % 9, out = 1.5 + c.r*3.0, back = 6.5 + c.r*1.2;
+        if (u > out && u < back) a = u < out + 0.3 ? (Math.random() < 0.5 ? 1 : 0.15) : 0;
+        if (u >= back && u < back + 0.18) glyph = GLYPHS[Math.floor(Math.random()*GLYPHS.length)];
+      }
+      if (fx === 'remember') {
+        const u = ms % 9, k = u < 3 ? ease(clamp((u - c.r*0.6)/2.4)) : (u < 7 ? 1 : (u < 7.6 ? 1 - ein((u - 7)/0.6) : 0));
+        mx = (c.sx + 6*Math.sin(s*1.3 + c.p1))*(1 - k); my = (c.sy + 6*Math.cos(s*1.1 + c.p2))*(1 - k);
+      }
+      if (fx === 'repeat' && copies.some(cc => cc.fresh)) mx = rnd(7);
+      const X = x + mx, Y = y + my;
+      if (a === 0) return;
+      copies.forEach(cc => { cx.globalAlpha = cc.a; cx.fillStyle = c.li ? SIG : INK; cx.fillText(glyph, X + (cc.fresh ? rnd(10) : 0), Y + cc.dy); });
+      cx.globalAlpha = a;
       // delay: echoes trailing behind
       if (L > 0.02) for (let k = 1; k <= 4; k++) {
         const h = c.hist[Math.min(c.hist.length - 1, k*8)]; if (!h) break;
@@ -395,8 +442,8 @@ function frame(now) {
         cx.save(); cx.translate(h[0], h[1]); cx.rotate(h[2]); cx.fillStyle = k % 2 ? SIG : INK; cx.fillText(glyph, 0, 0); cx.restore();
       }
       cx.globalAlpha = 1;
-      if (N > 0.08 && Math.random() < 0.15 + N*0.6) { cx.fillStyle = c.li ? INK : SIG; cx.fillText(glyph, x - 2 - N*6, y + rnd(N*2)); }
-      cx.save(); cx.translate(x, y); cx.rotate(c.rot); const base = c.li ? SIG : INK, alt = c.li ? INK : SIG; cx.fillStyle = c.g ? alt : base; cx.fillText(glyph, 0, 0); cx.restore();
+      if (N > 0.08 && Math.random() < 0.15 + N*0.6) { cx.fillStyle = c.li ? INK : SIG; cx.fillText(glyph, X - 2 - N*6, Y + rnd(N*2)); }
+      cx.save(); cx.translate(X, Y); cx.rotate(c.rot); const base = c.li ? SIG : INK, alt = c.li ? INK : SIG; cx.fillStyle = c.g ? alt : base; cx.fillText(glyph, 0, 0); cx.restore(); cx.globalAlpha = 1;
     });
     if (swaps && Math.random() < 0.5) blip(0.012 + N*0.03);
     if (N > 0.15) glitchSlices(N);
