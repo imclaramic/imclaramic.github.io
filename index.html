@@ -18,15 +18,23 @@
   .ui { position:fixed; left:0; right:0; padding:16px 20px; display:flex; justify-content:space-between; align-items:flex-start;
     font-size:15px; line-height:1.4; opacity:0; transition:opacity .6s; pointer-events:none; }
   body.on .ui { opacity:1; pointer-events:auto; }
-  .top { top:0; }
+  .top { top:0; padding-top:24px; }
   .brand { font-weight:700; }
   .brand em { display:block; font-style:normal; color:var(--signal); white-space:nowrap; }
   .brand span { display:block; font-weight:400; color:var(--muted); }
-  nav { display:flex; gap:18px; }
+  nav { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
   nav button { all:unset; cursor:pointer; color:var(--muted); font-weight:700; display:flex; align-items:center; gap:6px; }
   nav button svg { width:11px; height:13px; }
   nav button:active { color:var(--ink); }
-  .bottom { bottom:0; flex-direction:column; align-items:stretch; gap:14px; padding-bottom:max(18px, env(safe-area-inset-bottom)); }
+  nav button.open { color:var(--ink); }
+  nav button.open.on { color:var(--signal); }
+  .links { position:fixed; top:140px; right:20px; display:flex; flex-direction:column; align-items:flex-end; gap:10px;
+    font-size:15px; font-weight:700; opacity:0; pointer-events:none; }
+  .links.show { opacity:1; pointer-events:auto; }
+  .links a { color:var(--ink); text-decoration:none; padding:2px 0; }
+  .links a span { color:var(--muted); font-weight:400; }
+  .links a:active { color:var(--signal); }
+  .bottom { bottom:0; flex-direction:column; align-items:stretch; gap:30px; padding-bottom:max(40px, calc(env(safe-area-inset-bottom) + 24px)); }
   .mixer { display:flex; justify-content:center; gap:34px; }
   .fader { display:flex; flex-direction:column; align-items:center; gap:8px; }
   .track { position:relative; width:40px; height:84px; cursor:ns-resize; touch-action:none; }
@@ -52,11 +60,16 @@
 <div class="ui top">
   <div class="brand">proj.zip <em>(processing<span id="dots" style="display:inline-block;width:3ch;text-align:left;color:inherit;font-weight:inherit">...</span>)</em></div>
   <nav>
-    <button data-m="collect"><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>collect</button>
-    <button data-m="rooms"><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>rooms</button>
+    <button data-m="rooms" data-locked><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>rooms</button>
+    <button data-m="collect" data-locked><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>collect</button>
+    <button data-m="links" id="linksBtn" class="open">links</button>
   </nav>
 </div>
 <div class="toast" id="toast">module not installed</div>
+<div class="links" id="links">
+  <a href="https://www.instagram.com/imclaramic/" target="_blank" rel="noopener">instagram<span>/imclaramic</span></a>
+  <a href="https://x.com/imclaramic" target="_blank" rel="noopener">x<span>/imclaramic</span></a>
+</div>
 
 <div class="ui bottom">
   <div class="mixer" id="mixer"></div>
@@ -278,12 +291,21 @@ function unlockAudio() {
 ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, unlockAudio, { capture:true }));
 setTimeout(wake, 700);
 
-document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => {
+document.querySelectorAll('nav button[data-locked]').forEach(b => b.addEventListener('click', () => {
   const tt = document.getElementById('toast');
   tt.textContent = b.dataset.m + ': module not installed';
   tt.classList.add('show'); blip(0.05); setTimeout(() => blip(0.04), 70);
   clearTimeout(tt._h); tt._h = setTimeout(() => tt.classList.remove('show'), 1400);
 }));
+const linksBtn = document.getElementById('linksBtn'), linksEl = document.getElementById('links');
+linksBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  const on = !linksEl.classList.contains('show');
+  linksEl.style.top = (document.querySelector('nav').getBoundingClientRect().bottom + 22) + 'px';
+  linksEl.classList.toggle('show', on); linksBtn.classList.toggle('on', on);
+  blip(on ? 0.05 : 0.03);
+});
+document.addEventListener('click', e => { if (!linksEl.contains(e.target) && e.target !== linksBtn) { linksEl.classList.remove('show'); linksBtn.classList.remove('on'); } });
 const sndBtn = document.getElementById('snd');
 sndBtn.addEventListener('click', () => {
   if (sndBtn.textContent.includes('tap')) return;
