@@ -20,11 +20,13 @@
   body.on .ui { opacity:1; pointer-events:auto; }
   .top { top:0; padding-top:24px; }
   .brand { font-weight:700; }
-  .brand em { display:block; font-style:normal; color:var(--signal); white-space:nowrap; }
+  .brand em { display:block; margin-top:6px; font-style:normal; color:var(--signal); white-space:nowrap; }
   .brand span { display:block; font-weight:400; color:var(--muted); }
-  nav { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+  nav { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
   nav button { all:unset; cursor:pointer; color:var(--muted); font-weight:700; display:flex; align-items:center; gap:6px; }
   nav button svg { width:11px; height:13px; }
+  nav button { position:relative; }
+  nav button::after { content:""; position:absolute; inset:-4px -12px -4px -12px; }
   nav button:active { color:var(--ink); }
   nav button.open { color:var(--ink); }
   nav button.open.on { color:var(--signal); }
@@ -81,7 +83,6 @@
   <div class="brand">proj.zip <em>processing<span id="dots" style="display:inline-block;width:3ch;text-align:left;color:inherit;font-weight:inherit">...</span></em></div>
   <nav>
     <button data-m="rooms" data-locked><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>rooms</button>
-    <button data-m="collect" data-locked><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>collect</button>
     <button data-m="links" id="linksBtn" class="open">links</button>
   </nav>
 </div>
