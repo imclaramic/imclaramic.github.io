@@ -27,12 +27,12 @@
   nav button svg { width:11px; height:13px; }
   nav button:active { color:var(--ink); }
   .bottom { bottom:0; flex-direction:column; align-items:stretch; gap:14px; padding-bottom:max(18px, env(safe-area-inset-bottom)); }
-  .mixer { display:flex; justify-content:center; gap:38px; }
+  .mixer { display:flex; justify-content:center; gap:34px; }
   .fader { display:flex; flex-direction:column; align-items:center; gap:8px; }
-  .track { position:relative; width:40px; height:124px; cursor:ns-resize; touch-action:none; }
+  .track { position:relative; width:40px; height:84px; cursor:ns-resize; touch-action:none; }
   .track::before { content:""; position:absolute; left:19px; top:0; bottom:0; width:2px; background:#3a3a3a; }
   .fill { position:absolute; left:19px; bottom:0; width:2px; background:var(--signal); }
-  .knob { position:absolute; left:3px; width:34px; height:14px; background:var(--ink); transition:background .2s; }
+  .knob { position:absolute; left:6px; width:28px; height:10px; background:var(--ink); transition:background .2s; }
   .track.active .knob { background:var(--signal); }
   .fader b { font-weight:700; font-size:15px; }
   .fader i { font-style:normal; color:var(--muted); font-size:15px; min-width:3.2em; text-align:center; }
@@ -159,7 +159,7 @@ PARAMS.forEach(p => {
 function drawFaders() {
   PARAMS.forEach(p => {
     const h = p.track.clientHeight;
-    p.knob.style.top = ((1 - p.v)*(h - 14)) + 'px';
+    p.knob.style.top = ((1 - p.v)*(h - 10)) + 'px';
     p.fill.style.height = (p.v*h) + 'px';
     p.out.textContent = p.v.toFixed(2);
   });
