@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>proj.zip (processing...)</title>
+<title>proj.zip processing...</title>
 <link rel="icon" href="favicon.ico?v=2" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=2">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -35,20 +35,40 @@
   .links a span { color:var(--muted); font-weight:400; }
   .links a:active { color:var(--signal); }
   .bottom { bottom:0; flex-direction:column; align-items:stretch; gap:30px; padding-bottom:max(40px, calc(env(safe-area-inset-bottom) + 24px)); }
-  .mixer { display:flex; justify-content:center; gap:34px; }
+  .mixer { display:flex; justify-content:center; gap:16px; }
   .fader { display:flex; flex-direction:column; align-items:center; gap:8px; }
-  .track { position:relative; width:40px; height:84px; cursor:ns-resize; touch-action:none; }
-  .track::before { content:""; position:absolute; left:19px; top:0; bottom:0; width:2px; background:#3a3a3a; }
-  .fill { position:absolute; left:19px; bottom:0; width:2px; background:var(--signal); }
-  .knob { position:absolute; left:6px; width:28px; height:10px; background:var(--ink); transition:background .2s; }
-  .track.active .knob { background:var(--signal); }
+  .pad { position:relative; width:64px; height:64px; border:1.5px solid #3a3a3a; touch-action:none; cursor:pointer; overflow:hidden; -webkit-tap-highlight-color:transparent; }
+  .pad .fill { position:absolute; inset:0; background:var(--signal); opacity:0; }
+  .pad.active { border-color:var(--signal); }
+  .pad.locked { border-style:dashed; cursor:default; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .pad.locked svg { width:12px; height:15px; }
   .fader b { font-weight:700; font-size:15px; }
+  .fader.off b { color:var(--muted); }
   .fader i { font-style:normal; color:var(--muted); font-size:15px; min-width:3.2em; text-align:center; }
   .meta { display:flex; justify-content:space-between; align-items:flex-end; color:var(--muted); white-space:nowrap; }
   .meta button { all:unset; cursor:pointer; color:var(--muted); }
-  .toast { position:fixed; left:50%; top:58px; transform:translateX(-50%); font-size:15px; font-weight:700;
-    background:var(--signal); color:#000; padding:4px 10px; opacity:0; pointer-events:none; transition:opacity .15s; white-space:nowrap; }
-  .toast.show { opacity:1; }
+  .toast { position:fixed; top:0; left:0; width:100vw; height:100vh; height:100dvh; z-index:90; display:flex; align-items:center; justify-content:center; background:#000;
+    opacity:0; pointer-events:none; transition:opacity .1s; padding:0 24px; text-align:center; overflow:hidden; }
+  .toast .tw { display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .toast b { font-size:22px; font-weight:700; color:var(--signal); }
+  .toast span { font-size:15px; font-weight:400; color:var(--ink); }
+  .toast::before, .toast::after { content:""; position:absolute; left:0; right:0; height:3px; opacity:0; }
+  .toast::before { background:var(--signal); }
+  .toast::after { background:var(--ink); height:1px; }
+  .toast.show .tw { animation:terr .42s steps(1) both; }
+  .toast.show::before { animation:tbar .42s steps(1) both; }
+  .toast.show::after { animation:tbar2 .42s steps(1) both; }
+  @keyframes terr {
+    0%   { transform:translate(-10px,0); clip-path:inset(18% 0 48% 0); text-shadow:5px 0 #EFEFEF, -5px 0 #00FFBB; }
+    14%  { transform:translate(8px,-2px); clip-path:inset(58% 0 4% 0); text-shadow:-4px 0 #EFEFEF, 4px 0 #00FFBB; }
+    28%  { transform:translate(-4px,1px); clip-path:inset(0 0 66% 0); text-shadow:3px 0 #EFEFEF; }
+    42%  { transform:translate(3px,0); clip-path:inset(30% 0 20% 0); text-shadow:-2px 0 #00FFBB; }
+    56%  { transform:translate(-1px,0); clip-path:none; text-shadow:2px 0 #EFEFEF; }
+    70%  { transform:none; clip-path:none; text-shadow:none; }
+    100% { transform:none; clip-path:none; text-shadow:none; } }
+  @keyframes tbar { 0% { opacity:1; top:41%; } 20% { opacity:1; top:57%; height:6px; } 40% { opacity:1; top:46%; height:2px; } 60% { opacity:0; } 100% { opacity:0; } }
+  @keyframes tbar2 { 0% { opacity:1; top:53%; } 25% { opacity:1; top:38%; } 50% { opacity:1; top:61%; } 70% { opacity:0; } 100% { opacity:0; } }
+  .toast.show { opacity:1; pointer-events:auto; }
   .hint { position:fixed; left:0; right:0; text-align:center; font-size:15px; font-weight:700; color:var(--muted);
     pointer-events:none; transition:opacity .3s; }
 </style>
@@ -58,14 +78,13 @@
 <div class="hint" id="hint">proj.zip_sleep</div>
 
 <div class="ui top">
-  <div class="brand">proj.zip <em>(processing<span id="dots" style="display:inline-block;width:3ch;text-align:left;color:inherit;font-weight:inherit">...</span>)</em></div>
+  <div class="brand">proj.zip <em>processing<span id="dots" style="display:inline-block;width:3ch;text-align:left;color:inherit;font-weight:inherit">...</span></em></div>
   <nav>
     <button data-m="rooms" data-locked><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>rooms</button>
     <button data-m="collect" data-locked><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>collect</button>
     <button data-m="links" id="linksBtn" class="open">links</button>
   </nav>
 </div>
-<div class="toast" id="toast">module not installed</div>
 <div class="links" id="links">
   <a href="https://www.instagram.com/imclaramic/" target="_blank" rel="noopener">instagram<span>/imclaramic</span></a>
   <a href="https://x.com/imclaramic" target="_blank" rel="noopener">x<span>/imclaramic</span></a>
@@ -76,6 +95,7 @@
   <div class="meta"><span id="clock">message_01</span><button id="snd">sound: tap to listen</button></div>
 </div>
 
+<div class="toast" id="toast"><div class="tw"><b>module not installed</b><span>try again later.</span></div></div>
 <script>
 (() => {
 const EYE = {"x":[0.0,0.0158,0.0325,0.0492,0.0659,0.0826,0.0994,0.1161,0.1328,0.1495,0.1662,0.1829,0.1996,0.2163,0.2331,0.2498,0.2665,0.2832,0.2999,0.3166,0.3333,0.3491,0.3658,0.3825,0.3993,0.416,0.4327,0.4494,0.4661,0.4828,0.4995,0.5162,0.533,0.5497,0.5664,0.5831,0.5998,0.6165,0.6332,0.65,0.6667,0.6825,0.6992,0.7159,0.7326,0.7493,0.766,0.7827,0.7994,0.8162,0.8329,0.8496,0.8663,0.883,0.8997,0.9164,0.9331,0.9499,0.9666,0.9833,1.0],"t":[0.0784,0.0728,0.0681,0.0635,0.0589,0.0542,0.0496,0.0459,0.0422,0.0384,0.0347,0.031,0.0282,0.0254,0.0227,0.0199,0.0171,0.0143,0.0124,0.0106,0.0088,0.0072,0.0057,0.0044,0.0033,0.0023,0.0015,0.0008,0.0004,0.0001,0.0,0.0,0.0002,0.0006,0.0012,0.0019,0.0028,0.0039,0.0051,0.0065,0.0081,0.0098,0.0115,0.0143,0.0162,0.0189,0.0217,0.0245,0.0273,0.0301,0.0338,0.0375,0.0412,0.0449,0.0487,0.0533,0.0579,0.0626,0.0672,0.0728,0.0784],"b":[0.0784,0.0914,0.1034,0.1155,0.1266,0.1378,0.1489,0.1582,0.1684,0.1777,0.1861,0.1944,0.2028,0.2102,0.2176,0.2241,0.2306,0.2371,0.2427,0.2474,0.252,0.2566,0.2603,0.2641,0.2668,0.2696,0.2715,0.2733,0.2743,0.2743,0.2743,0.2743,0.2733,0.2715,0.2696,0.2668,0.2641,0.2613,0.2576,0.2529,0.2483,0.2436,0.239,0.2334,0.2269,0.2204,0.2139,0.2065,0.1991,0.1907,0.1824,0.174,0.1647,0.1554,0.1461,0.1359,0.1248,0.1146,0.1025,0.0904,0.0784],"pc":[0.5,0.0566],"pr":0.1967,"hc":[0.3407,0.1051],"hr":0.0372,"h":0.2743};
@@ -183,22 +203,31 @@ function layout() {
 /* ---------- faders ---------- */
 const PARAMS = [ { id:'noise', v:0, held:false }, { id:'drift', v:0, held:false }, { id:'delay', v:0, held:false } ];
 const mixer = document.getElementById('mixer');
+const HITS = { noise: () => { if (A) burst(A.ac.currentTime, 0.12, 0.3, 3000); }, drift: () => driftSound(), delay: () => { if (A) kick(A.ac.currentTime, 0.6); } };
 PARAMS.forEach(p => {
   const el = document.createElement('div'); el.className = 'fader';
-  el.innerHTML = `<div class="track"><div class="fill"></div><div class="knob"></div></div><b>${p.id}</b><i>0.00</i>`;
+  el.innerHTML = `<div class="pad"><div class="fill"></div></div><b>${p.id}</b><i>0.00</i>`;
   mixer.appendChild(el);
-  p.track = el.querySelector('.track'); p.fill = el.querySelector('.fill'); p.knob = el.querySelector('.knob'); p.out = el.querySelector('i');
-  const set = e => { const r = p.track.getBoundingClientRect(); p.v = clamp(1 - (e.clientY - r.top)/r.height); };
-  p.track.addEventListener('pointerdown', e => { p.held = true; p.track.classList.add('active'); p.track.setPointerCapture(e.pointerId); set(e); });
-  p.track.addEventListener('pointermove', e => { if (p.held) set(e); });
+  p.track = el.querySelector('.pad'); p.fill = el.querySelector('.fill'); p.out = el.querySelector('i');
+  p.track.addEventListener('pointerdown', e => { p.held = true; p.track.classList.add('active'); p.track.setPointerCapture(e.pointerId); p.v = Math.max(p.v, 0.6); HITS[p.id](); });
   const up = () => { p.held = false; p.track.classList.remove('active'); };
   p.track.addEventListener('pointerup', up); p.track.addEventListener('pointercancel', up);
 });
+// fourth pad: the game, locked for now
+(() => {
+  const el = document.createElement('div'); el.className = 'fader off';
+  el.innerHTML = `<div class="pad locked"><svg viewBox="0 0 9 11"><rect x="0" y="4.5" width="9" height="6.5" fill="currentColor"/><path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg></div><b>boot</b><i>&nbsp;</i>`;
+  mixer.appendChild(el);
+  el.querySelector('.pad').addEventListener('click', () => {
+    const tt = document.getElementById('toast');
+    tt.classList.remove('show'); void tt.offsetWidth; tt.classList.add('show'); errorSound();
+    clearTimeout(tt._h); tt._h = setTimeout(() => tt.classList.remove('show'), 1400);
+  });
+})();
+
 function drawFaders() {
   PARAMS.forEach(p => {
-    const h = p.track.clientHeight;
-    p.knob.style.top = ((1 - p.v)*(h - 10)) + 'px';
-    p.fill.style.height = (p.v*h) + 'px';
+    p.fill.style.opacity = (p.v*0.9).toFixed(3);
     p.out.textContent = p.v.toFixed(2);
   });
 }
@@ -252,6 +281,35 @@ function burst(t0, dur=0.12, amp=0.25, f=3000) {
   const fl = ac.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = 2;
   const g = ac.createGain(); g.gain.setValueAtTime(amp, t0); g.gain.setValueAtTime(0, t0 + dur);
   s.connect(fl).connect(g).connect(master); s.start(t0, Math.random()); s.stop(t0 + dur + 0.02);
+}
+// error: one dry percussive hit, like a system alert. Sharp attack, short decay, no tail
+function errorSound() {
+  if (!A || !soundOn) return; const { ac, master } = A, t0 = ac.currentTime + 0.005;
+  const g = ac.createGain(); g.connect(master);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+  [[233, 'sine', 1], [233*2.76, 'sine', 0.35], [233*5.4, 'triangle', 0.12]].forEach(([f, type, a]) => {
+    const o = ac.createOscillator(), og = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f*1.04, t0); o.frequency.exponentialRampToValueAtTime(f, t0 + 0.03);
+    og.gain.value = a; o.connect(og).connect(g); o.start(t0); o.stop(t0 + 0.18);
+  });
+}
+// drift: a sliding tone that wanders up and away, with a soft airy sweep
+function driftSound() {
+  if (!A || !soundOn) return; const { ac, master } = A, t0 = ac.currentTime + 0.005;
+  const out = ac.createGain(), pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+  out.gain.setValueAtTime(0.0001, t0); out.gain.exponentialRampToValueAtTime(0.16, t0 + 0.02); out.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+  if (pan) { pan.pan.setValueAtTime(-0.6, t0); pan.pan.linearRampToValueAtTime(0.6, t0 + 0.5); out.connect(pan).connect(master); } else out.connect(master);
+  const f0 = [220, 247, 262, 294][Math.floor(Math.random()*4)];
+  [[1, 'triangle', 1], [1.5, 'sine', 0.5]].forEach(([m, type, a]) => {
+    const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0*m, t0); o.frequency.exponentialRampToValueAtTime(f0*m*2.6, t0 + 0.5);
+    lfo.frequency.value = 9; lg.gain.value = f0*m*0.04; lfo.connect(lg).connect(o.frequency);
+    g.gain.value = a; o.connect(g).connect(out); o.start(t0); lfo.start(t0); o.stop(t0 + 0.6); lfo.stop(t0 + 0.6);
+  });
+  const n = ac.createBufferSource(), b = ac.createBuffer(1, ac.sampleRate*0.6, ac.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
+  const bp = ac.createBiquadFilter(), ng = ac.createGain(); bp.type = 'bandpass'; bp.Q.value = 6;
+  bp.frequency.setValueAtTime(600, t0); bp.frequency.exponentialRampToValueAtTime(5000, t0 + 0.5); ng.gain.value = 0.5;
+  n.buffer = b; n.connect(bp).connect(ng).connect(out); n.start(t0); n.stop(t0 + 0.6);
 }
 function blip(amp) {
   if (!A) return; const { ac, master } = A; const t0 = ac.currentTime;
@@ -314,8 +372,7 @@ setTimeout(wake, 700);
 
 document.querySelectorAll('nav button[data-locked]').forEach(b => b.addEventListener('click', () => {
   const tt = document.getElementById('toast');
-  tt.textContent = b.dataset.m + ': module not installed';
-  tt.classList.add('show'); blip(0.05); setTimeout(() => blip(0.04), 70);
+  tt.classList.remove('show'); void tt.offsetWidth; tt.classList.add('show'); errorSound();
   clearTimeout(tt._h); tt._h = setTimeout(() => tt.classList.remove('show'), 1400);
 }));
 const linksBtn = document.getElementById('linksBtn'), linksEl = document.getElementById('links');
@@ -386,7 +443,7 @@ function frame(now) {
 
   if (mode === 'on') {
     const s = (now - onAt)/1000;
-    PARAMS.forEach(p => { if (!p.held) p.v += (0 - p.v)*(1 - Math.exp(-dt/1.1)); if (p.v < 0.002 && !p.held) p.v = 0; });
+    PARAMS.forEach(p => { if (p.held) p.v += (1 - p.v)*(1 - Math.exp(-dt/0.25)); if (!p.held) p.v += (0 - p.v)*(1 - Math.exp(-dt/1.1)); if (p.v < 0.002 && !p.held) p.v = 0; });
     const fx = MSG.fx, ms = (now - msgAt)/1000;
     const d = fx === 'base' ? cycle(s) : 0;
     const kick = Math.max(0, 1 - (now - kickAt)/450);
@@ -401,6 +458,7 @@ function frame(now) {
         copies.push({ dy: (k % 2 ? -1 : 1)*Math.ceil((k+1)/2)*LH*(LINES.length + 0.9), a: (0.55 - k*0.08)*fade, fresh: age < 0.09 }); } }
       if (copies.some(c => c.fresh)) { fxN = 0.45; if (!frame._rep || now - frame._rep > 200) { frame._rep = now; blip(0.05); } }
     }
+    const nU = PARAMS[0].v, dU = PARAMS[1].v, lU = PARAMS[2].v;   // what the visitor adds on top
     const N = clamp(d*0.55 + PARAMS[0].v + fxN + kick*0.8);
     const D = clamp(d*0.6 + PARAMS[1].v);
     const L = clamp(d*0.35 + PARAMS[2].v);
@@ -411,15 +469,15 @@ function frame(now) {
     let swaps = 0;
     chars.forEach((c, i) => {
       // drift: each letter follows its own slow path away from home
-      const tx = D*R*Math.sin(s*c.f1 + c.p1)*Math.sin(s*0.21 + i), ty = D*R*0.8*Math.cos(s*c.f2 + c.p2);
+      const sp = 1 + dU*1.6, RR = (D + dU*0.8)*R, tx = RR*1.15*Math.sin(s*sp*c.f1 + c.p1)*Math.sin(s*0.21*sp + i), ty = RR*0.95*Math.cos(s*sp*c.f2 + c.p2);
       c.vx += (tx - c.ox)*dt*5; c.vy += (ty - c.oy)*dt*5; c.vx *= 0.86; c.vy *= 0.86;
-      c.ox += c.vx; c.oy += c.vy; c.rot = D*0.9*Math.sin(s*c.f2*2 + c.p1);
+      c.ox += c.vx; c.oy += c.vy; c.rot = D*0.9*Math.sin(s*c.f2*2 + c.p1) + dU*2.2*Math.sin(s*c.f1*3 + c.p2);
       // noise: glyph swaps and jitter
-      if (c.ch !== ' ' && Math.random() < N*N*0.12) { c.g = GLYPHS[Math.floor(Math.random()*GLYPHS.length)]; c.gt = 0.05 + Math.random()*0.25; swaps++; }
+      if (c.ch !== ' ' && Math.random() < N*N*0.12 + nU*0.35) { c.g = GLYPHS[Math.floor(Math.random()*GLYPHS.length)]; c.gt = 0.05 + Math.random()*0.25; swaps++; }
       if (c.gt > 0) { c.gt -= dt; if (c.gt <= 0) c.g = null; }
-      const jx = N > 0.05 ? rnd(N*5) : 0;
+      const jx = (N > 0.05 ? rnd(N*5) : 0) + (nU > 0.05 && Math.random() < nU*0.5 ? rnd(nU*22) : 0);
       const x = c.hx + c.ox + jx, y = c.hy + c.oy;
-      c.hist.unshift([x, y, c.rot]); if (c.hist.length > 40) c.hist.pop();
+      c.hist.unshift([x, y, c.rot]); if (c.hist.length > 110) c.hist.pop();
       let glyph = c.g || c.ch, a = 1, mx = 0, my = 0;
       if (fx === 'forget') {
         const u = ms % 9, out = 1.5 + c.r*3.0, back = 6.5 + c.r*1.2;
@@ -436,9 +494,10 @@ function frame(now) {
       copies.forEach(cc => { cx.globalAlpha = cc.a; cx.fillStyle = c.li ? SIG : INK; cx.fillText(glyph, X + (cc.fresh ? rnd(10) : 0), Y + cc.dy); });
       cx.globalAlpha = a;
       // delay: echoes trailing behind
-      if (L > 0.02) for (let k = 1; k <= 4; k++) {
-        const h = c.hist[Math.min(c.hist.length - 1, k*8)]; if (!h) break;
-        cx.globalAlpha = L*0.42*(1 - k/5);
+      const nE = 4 + Math.round(lU*5), gap = 8 + Math.round(lU*6);
+      if (L > 0.02) for (let k = 1; k <= nE; k++) {
+        const h = c.hist[Math.min(c.hist.length - 1, k*gap)]; if (!h) break;
+        cx.globalAlpha = Math.max(L*0.42, lU*0.8)*(1 - k/(nE + 1));
         cx.save(); cx.translate(h[0], h[1]); cx.rotate(h[2]); cx.fillStyle = k % 2 ? SIG : INK; cx.fillText(glyph, 0, 0); cx.restore();
       }
       cx.globalAlpha = 1;
@@ -447,6 +506,12 @@ function frame(now) {
     });
     if (swaps && Math.random() < 0.5) blip(0.012 + N*0.03);
     if (N > 0.15) glitchSlices(N);
+    if (nU > 0.05) {   // noise from the visitor: torn bands and inverted blocks, on top of the explosion
+      glitchSlices(nU*1.4);
+      for (let i = 0; i < Math.floor(nU*5); i++) { const y = Math.random()*H, h = 1 + Math.random()*nU*10;
+        cx.fillStyle = Math.random() < 0.5 ? SIG : INK; cx.globalAlpha = 0.25 + nU*0.5; cx.fillRect(0, y, W, h); cx.globalAlpha = 1; }
+      if (Math.random() < nU*0.12) { cx.globalCompositeOperation = 'difference'; cx.fillStyle = '#EFEFEF'; cx.fillRect(0, Math.random()*H, W, 20 + Math.random()*80*nU); cx.globalCompositeOperation = 'source-over'; }
+    }
     if (N > 0.35) { // scanlines
       cx.fillStyle = 'rgba(0,0,0,' + (N*0.35) + ')';
       for (let y = 0; y < H; y += 3) cx.fillRect(0, y, W, 1);
